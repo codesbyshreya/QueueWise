@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Track Token | QueueWise</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<header class="navbar"><a class="brand" href="index.html"><span class="brand-mark">Q</span> QueueWise</a><nav><a href="customer.html">Get a token</a><a href="index.html">Home</a></nav></header>
+<main class="dashboard-page narrow">
+  <div class="page-heading"><span class="eyebrow">LIVE QUEUE TRACKING</span><h1>Know where you stand.</h1><p>This page shows sample data until it is connected to the backend.</p></div>
+  <section class="panel tracking-card">
+    <div class="panel-top"><span class="muted">YOUR TOKEN</span><span class="pill pill-waiting" id="trackingStatus">Waiting</span></div>
+    <div class="tracking-token" id="trackingToken">A012</div>
+    <div class="token-stats three"><div><span class="muted">Now serving</span><strong id="nowServing">A008</strong></div><div><span class="muted">People ahead</span><strong id="trackingAhead">4</strong></div><div><span class="muted">Estimated wait</span><strong id="trackingWait">20 min</strong></div></div>
+    <div class="progress-label"><span>Queue progress</span><span id="progressText">In line</span></div><div class="queue-progress"><span id="progressBar"></span></div>
+    <p class="small-note">Waiting-time estimates can change as service speed and queue length change.</p>
+    <a class="btn btn-primary" href="customer.html">Get another demo token</a>
+  </section>
+</main><script src="js/app.js"></script><script src="js/customer.js"></script>
+</body></html>
