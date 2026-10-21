@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Dashboard | QueueWise</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <header class="navbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">Q</span> QueueWise
+    </a>
+    <nav>
+      <a href="customer.html">Customer view</a>
+      <a href="analytics.html">Analytics</a>
+      <span id="staffUserDisplay" style="font-weight: 600; color: var(--ink); margin-left: 8px;"></span>
+      <a href="login.html" id="logoutBtn" style="color: #b42318; font-weight: 600;">Sign out</a>
+    </nav>
+  </header>
+
+  <main class="dashboard-page">
+    <div class="page-heading page-heading-row">
+      <div>
+        <span class="eyebrow">STAFF WORKSPACE</span>
+        <h1>Queue control</h1>
+        <p>Call customers and manage service at your assigned counter.</p>
+      </div>
+      <span class="pill pill-waiting">LIVE QUEUE</span>
+    </div>
+
+    <section class="panel">
+      <label for="counterSelect">Select counter</label>
+      <select id="counterSelect" required>
+        <option value="">Loading counters...</option>
+      </select>
+      <p id="staffMessage" class="form-message" aria-live="polite">
+        Connecting to QueueWise...
+      </p>
+    </section>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="muted">Waiting</span>
+        <strong id="waitingCount">—</strong>
+        <small>Customers in queue</small>
+      </div>
+      <div class="summary-card">
+        <span class="muted">Now serving</span>
+        <strong id="staffServing">—</strong>
+        <small>Current ticket</small>
+      </div>
+      <div class="summary-card">
+        <span class="muted">Completed</span>
+        <strong id="completedCount">—</strong>
+        <small>Completed today at this counter</small>
+      </div>
+    </div>
+
+    <section class="panel table-panel">
+      <div class="panel-top">
+        <div>
+          <h2>Current queue</h2>
+          <p class="muted">Actions are saved to the database.</p>
+        </div>
+        <button class="btn btn-primary" id="callNextBtn" disabled>
+          Call next →
+        </button>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Service</th>
+              <th>Joined</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="queueBody">
+            <tr>
+              <td colspan="5">Loading queue...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/staff.js"></script>
+</body>
+
+</html>

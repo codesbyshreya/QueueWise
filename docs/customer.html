@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get a Token | QueueWise</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="navbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">Q</span> QueueWise
+    </a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="token.html">Track token</a>
+      <a href="staff.html">Staff demo</a>
+    </nav>
+  </header>
+
+  <main class="dashboard-page">
+    <div class="page-heading">
+      <span class="eyebrow">CUSTOMER PORTAL</span>
+      <h1>Get your token</h1>
+      <p>Choose the service you need. We’ll help you keep track of your place in line.</p>
+    </div>
+
+    <div class="content-grid">
+      <section class="panel">
+        <h2>Choose a service</h2>
+        <p class="muted">Select your service and the location you want to visit.</p>
+
+        <form id="tokenForm">
+          <label for="service">Service</label>
+          <select id="service" name="service" required>
+            <option value="">Loading services...</option>
+          </select>
+
+          <label for="location">Location</label>
+          <select id="location" name="location" required>
+            <option value="">Loading locations...</option>
+          </select>
+
+          <button
+            class="btn btn-primary full-width"
+            type="submit"
+            id="generateBtn"
+            disabled
+          >
+            Generate token →
+          </button>
+
+          <p class="small-note" id="formMessage" role="status" aria-live="polite">
+            Connecting to QueueWise...
+          </p>
+        </form>
+      </section>
+
+      <section class="panel token-panel" id="tokenResult" aria-live="polite">
+        <div class="panel-top">
+          <span class="eyebrow">YOUR QUEUE PASS</span>
+          <span class="pill pill-waiting" id="tokenStatus">Waiting</span>
+        </div>
+
+        <p class="muted">Your token</p>
+        <div class="big-token" id="tokenNumber">—</div>
+
+        <div class="token-stats">
+          <div>
+            <span class="muted">People ahead</span>
+            <strong id="peopleAhead">—</strong>
+          </div>
+          <div>
+            <span class="muted">Estimated wait</span>
+            <strong id="waitTime">—</strong>
+          </div>
+        </div>
+
+        <a class="btn btn-secondary full-width" href="token.html">
+          Open tracking page →
+        </a>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/customer.js"></script>
+</body>
+</html>
