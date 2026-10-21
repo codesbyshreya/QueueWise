@@ -1,126 +1,206 @@
 
 const tokenForm = document.getElementById("tokenForm");
+const trackingToken = document.getElementById("trackingToken");
+
+// Load services and locations from the backend.
+async function loadCustomerOptions() {
+  if (!tokenForm) return;
+
+  const serviceSelect = document.getElementById("service");
+  const locationSelect = document.getElementById("location");
+  const generateBtn = document.getElementById("generateBtn");
+  const formMessage = document.getElementById("formMessage");
+
+  try {
+    const [services, locations] = await Promise.all([
+      QueueWise.request("/services"),
+      QueueWise.request("/locations")
+    ]);
+
+    serviceSelect.replaceChildren(
+      new Option("Select a service", "")
+    );
+
+    services.forEach(service => {
+      serviceSelect.add(
+        new Option(service.name, String(service.id))
+      );
+    });
+
+    locationSelect.replaceChildren(
+      new Option("Select a location", "")
+    );
+
+    locations.forEach(location => {
+      locationSelect.add(
+        new Option(location.name, String(location.id))
+      );
+    });
+
+    generateBtn.disabled = false;
+    formMessage.textContent =
+      "Services and locations loaded successfully.";
+  } catch (error) {
+    generateBtn.disabled = true;
+    formMessage.textContent =
+      "Could not load services or locations. Check that the backend server is running.";
+    console.error("Customer options error:", error);
+  }
+}
 
 if (tokenForm) {
-  tokenForm.addEventListener("submit", async (event) => {
+  loadCustomerOptions();
+
+  tokenForm.addEventListener("submit", async event => {
     event.preventDefault();
 
     const serviceId = document.getElementById("service").value;
+    const locationId = document.getElementById("location").value;
     const generateBtn = document.getElementById("generateBtn");
+    const formMessage = document.getElementById("formMessage");
+
+    if (!serviceId || !locationId) {
+      formMessage.textContent =
+        "Please select both a service and a location.";
+      return;
+    }
 
     try {
       generateBtn.disabled = true;
+      formMessage.textContent = "Generating your token...";
 
-      // Create a ticket using the shared API helper
       const data = await QueueWise.request("/queue", {
         method: "POST",
-        body: JSON.stringify({ serviceId })
+        body: JSON.stringify({
+          serviceId: Number(serviceId),
+          locationId: Number(locationId)
+        })
       });
 
       const ticket = data.ticket;
 
-      // Save the real backend ticket in this browser session
+      // Save the database ticket in this browser session.
       QueueWise.saveDemoToken(ticket);
 
-      // Display the ticket details
-      document.getElementById("tokenNumber").textContent = ticket.token;
-      document.getElementById("peopleAhead").textContent = ticket.peopleAhead;
+      document.getElementById("tokenNumber").textContent =
+        ticket.token;
+      document.getElementById("peopleAhead").textContent =
+        ticket.peopleAhead;
       document.getElementById("waitTime").textContent =
-        ticket.estimatedWaitMinutes + " min";
-      document.getElementById("tokenStatus").textContent = ticket.status;
+        `${ticket.estimatedWaitMinutes} min`;
+      document.getElementById("tokenStatus").textContent =
+        ticket.status;
+
+      formMessage.textContent =
+        `${data.message} Counter: ${ticket.counterName}, ${ticket.locationName}.`;
 
       document.getElementById("tokenResult").scrollIntoView({
         behavior: "smooth",
         block: "nearest"
       });
     } catch (error) {
-      alert(error.message || "Could not connect to the server.");
+      formMessage.textContent =
+        error.message || "Could not create your token.";
+      console.error("Token generation error:", error);
     } finally {
       generateBtn.disabled = false;
     }
   });
 }
 
-const trackingToken = document.getElementById("trackingToken");
-
+// Update the token tracking page.
 async function updateTracking() {
   if (!trackingToken) return;
 
   const savedTicket = QueueWise.getDemoToken();
 
-  if (!savedTicket || !savedTicket.id) {
+  const statusElement = document.getElementById("trackingStatus");
+  const nowServingElement = document.getElementById("nowServing");
+  const aheadElement = document.getElementById("trackingAhead");
+  const waitElement = document.getElementById("trackingWait");
+  const progressText = document.getElementById("progressText");
+  const progressBar = document.getElementById("progressBar");
+
+  if (!savedTicket || !savedTicket.id || !savedTicket.counterId) {
     trackingToken.textContent = "No token";
-    document.getElementById("trackingStatus").textContent = "Not found";
-    document.getElementById("nowServing").textContent = "—";
-    document.getElementById("trackingAhead").textContent = "—";
-    document.getElementById("trackingWait").textContent = "—";
-    document.getElementById("progressText").textContent =
-      "Generate a token first";
-    document.getElementById("progressBar").style.width = "0%";
+    statusElement.textContent = "Not found";
+    nowServingElement.textContent = "—";
+    aheadElement.textContent = "—";
+    waitElement.textContent = "—";
+    progressText.textContent = "Generate a token first";
+    progressBar.style.width = "0%";
     return;
   }
 
   try {
-    const queue = await QueueWise.request("/queue");
-    const ticket = queue.find(item => item.id === savedTicket.id);
+    // Only retrieve tickets for this token's counter.
+    const queue = await QueueWise.request(
+      `/queue?counterId=${encodeURIComponent(savedTicket.counterId)}`
+    );
+
+    const ticket = queue.find(
+      item => String(item.id) === String(savedTicket.id)
+    );
 
     if (!ticket) {
-      trackingToken.textContent = "Token not found";
-      document.getElementById("trackingStatus").textContent = "Not found";
-      document.getElementById("nowServing").textContent = "—";
-      document.getElementById("trackingAhead").textContent = "—";
-      document.getElementById("trackingWait").textContent = "—";
-      document.getElementById("progressText").textContent =
-        "Please generate a new token";
-      document.getElementById("progressBar").style.width = "0%";
+      trackingToken.textContent = savedTicket.token || "Token not found";
+      statusElement.textContent = "Not found";
+      nowServingElement.textContent = "—";
+      aheadElement.textContent = "—";
+      waitElement.textContent = "—";
+      progressText.textContent =
+        "This token is not in today's queue. It may be from a previous day.";
+      progressBar.style.width = "0%";
       return;
     }
 
-    const serviceTimes = {
-      "1": 10,
-      "2": 3,
-      "3": 5
-    };
+    const activeStatuses = ["Waiting", "Serving"];
 
     const ticketsAhead = queue.filter(item =>
-      item.id < ticket.id &&
-      (item.status === "Waiting" || item.status === "Serving")
+      item.tokenNumber < ticket.tokenNumber &&
+      activeStatuses.includes(item.status)
     );
 
     const peopleAhead = ticketsAhead.length;
 
     const estimatedWaitMinutes = ticketsAhead.reduce(
-      (total, item) => total + (serviceTimes[item.serviceId] || 0),
+      (total, item) =>
+        total + Number(item.averageServiceMinutes || 0),
       0
     );
 
-    const servingTicket = queue.find(item => item.status === "Serving");
+    const servingTicket = queue.find(
+      item => item.status === "Serving"
+    );
 
-    document.getElementById("trackingToken").textContent = ticket.token;
-    document.getElementById("trackingStatus").textContent = ticket.status;
-    document.getElementById("nowServing").textContent =
+    trackingToken.textContent = ticket.token;
+    statusElement.textContent = ticket.status;
+    nowServingElement.textContent =
       servingTicket ? servingTicket.token : "None";
-    document.getElementById("trackingAhead").textContent = peopleAhead;
-    document.getElementById("trackingWait").textContent =
-      estimatedWaitMinutes + " min";
+    aheadElement.textContent = peopleAhead;
+    waitElement.textContent = `${estimatedWaitMinutes} min`;
 
-    document.getElementById("progressText").textContent =
-      ticket.status === "Serving"
-        ? "Your turn"
-        : ticket.status === "Completed"
-          ? "Completed"
-          : peopleAhead === 0
-            ? "Next in line"
-            : "In line";
+    if (ticket.status === "Serving") {
+      progressText.textContent = "Your turn";
+      progressBar.style.width = "100%";
+    } else if (ticket.status === "Completed") {
+      progressText.textContent = "Service completed";
+      progressBar.style.width = "100%";
+    } else if (ticket.status === "Skipped") {
+      progressText.textContent = "This ticket was skipped";
+      progressBar.style.width = "0%";
+    } else if (ticket.status === "Cancelled") {
+      progressText.textContent = "This ticket was cancelled";
+      progressBar.style.width = "0%";
+    } else {
+      progressText.textContent =
+        peopleAhead === 0 ? "Next in line" : "Waiting in queue";
 
-    document.getElementById("progressBar").style.width =
-      ticket.status === "Serving" || ticket.status === "Completed"
-        ? "100%"
-        : Math.max(10, 100 - peopleAhead * 15) + "%";
-
+      progressBar.style.width =
+        `${Math.max(10, 100 - peopleAhead * 15)}%`;
+    }
   } catch (error) {
-    document.getElementById("progressText").textContent =
-      "Unable to refresh queue";
+    progressText.textContent = "Unable to refresh queue";
     console.error("Tracking error:", error);
   }
 }

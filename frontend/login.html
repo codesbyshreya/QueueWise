@@ -1,20 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login | QueueWise</title><link rel="stylesheet" href="css/style.css"></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | QueueWise</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
 <body class="auth-page">
-  <header class="navbar"><a class="brand" href="index.html"><span class="brand-mark">Q</span> QueueWise</a><nav><a href="index.html">Home</a></nav></header>
+  <header class="navbar">
+    <a class="brand" href="index.html"><span class="brand-mark">Q</span> QueueWise</a>
+    <nav><a href="index.html">Home</a></nav>
+  </header>
+
   <main class="auth-wrap">
     <section class="auth-card">
-      <span class="eyebrow">WELCOME BACK</span><h1>Sign in to QueueWise</h1><p class="muted">Use your account to access queue services.</p>
+      <span class="eyebrow">WELCOME BACK</span>
+      <h1>Sign in to QueueWise</h1>
+      <p class="muted">Use your account to access queue services.</p>
+
       <form id="loginForm">
-        <label for="email">Email address</label><input id="email" name="email" type="email" placeholder="you@example.com" required>
-        <label for="password">Password</label><input id="password" name="password" type="password" placeholder="Enter your password" required minlength="6">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" required>
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="Enter your password" required minlength="6">
+
         <p id="loginMessage" class="form-message" aria-live="polite"></p>
+
         <button class="btn btn-primary full-width" type="submit">Sign in</button>
       </form>
-      <p class="small-note">Frontend demo: authentication will work after the backend API is connected.</p>
-      <p class="center-text">Just exploring? <a href="customer.html">Continue to the demo</a></p>
+
+      <p class="center-text">Just exploring? <a href="customer.html">Continue as guest</a></p>
     </section>
   </main>
+
+  <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
-</body></html>
+</body>
+</html>

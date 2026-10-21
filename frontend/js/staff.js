@@ -1,24 +1,118 @@
+// Check authentication
+const currentUser = QueueWise.requireAuth(["STAFF", "ADMIN"]);
 
 const queueBody = document.getElementById("queueBody");
 
 if (queueBody) {
-  const serviceNames = {
-    "1": "Document Verification",
-    "2": "Fee Payment",
-    "3": "Student Enquiry"
-  };
-
-  const msg = document.getElementById("staffMessage");
+  const counterSelect = document.getElementById("counterSelect");
   const callNextBtn = document.getElementById("callNextBtn");
+  const msg = document.getElementById("staffMessage");
+  const staffDisplay = document.getElementById("staffUserDisplay");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  let actionInProgress = false;
+
+  // Show user in navbar if elements exist
+  if (currentUser && currentUser.fullName && staffDisplay) {
+    staffDisplay.textContent = `👤 ${currentUser.fullName}`;
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      QueueWise.clearUser();
+      window.location.replace("login.html");
+    });
+  }
+
+  function showMessage(message, success = true) {
+    if (!msg) return;
+    msg.textContent = message;
+    msg.style.color = success ? "#087f5b" : "#c92a2a";
+  }
+
+  function setActionButtonsDisabled(disabled) {
+    if (callNextBtn) {
+      callNextBtn.disabled = disabled || !counterSelect.value;
+    }
+    queueBody.querySelectorAll("button").forEach(button => {
+      button.disabled = disabled;
+    });
+  }
+
+  async function loadCounters() {
+    try {
+      const counters = await QueueWise.request("/counters");
+
+      counterSelect.replaceChildren(
+        new Option("Select a counter", "")
+      );
+
+      // Filter for staff, or show all for admin
+      const isStaff = currentUser && currentUser.role === "STAFF" && currentUser.assignedCounterId;
+      const allowedCounters = isStaff
+        ? counters.filter(c => c.id === currentUser.assignedCounterId)
+        : counters;
+
+      allowedCounters.forEach(counter => {
+        const label = `${counter.code} — ${counter.name} (${counter.locationName})`;
+        counterSelect.add(new Option(label, String(counter.id)));
+      });
+
+      if (allowedCounters.length === 0) {
+        showMessage("No active counter available.", false);
+        return;
+      }
+
+      // Auto-select if assigned to this staff member
+      if (isStaff) {
+        counterSelect.value = String(currentUser.assignedCounterId);
+        counterSelect.disabled = true;
+        showMessage(`Operating station: ${currentUser.counterCode || ''} — ${currentUser.counterName || ''}`);
+        await loadQueue();
+      } else {
+        counterSelect.disabled = false;
+        showMessage("Counters loaded. Select a counter.");
+      }
+    } catch (error) {
+      console.error("loadCounters error:", error);
+      showMessage(error.message || "Could not load counters.", false);
+    }
+  }
 
   async function loadQueue() {
-    try {
-      const queue = await QueueWise.request("/queue");
+    const counterId = counterSelect.value;
 
-      queueBody.innerHTML = "";
+    if (!counterId) {
+      queueBody.replaceChildren();
+      const row = queueBody.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 5;
+      cell.textContent = "Select a counter to view its queue.";
+
+      document.getElementById("waitingCount").textContent = "—";
+      document.getElementById("staffServing").textContent = "—";
+      document.getElementById("completedCount").textContent = "—";
+      if (callNextBtn) callNextBtn.disabled = true;
+      return;
+    }
+
+    try {
+      const queue = await QueueWise.request(
+        `/queue?counterId=${encodeURIComponent(counterId)}`
+      );
+
+      queueBody.replaceChildren();
+
+      if (queue.length === 0) {
+        const row = queueBody.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = 5;
+        cell.textContent = "No tickets at this counter today.";
+      }
 
       queue.forEach(ticket => {
-        const tr = document.createElement("tr");
+        const row = document.createElement("tr");
 
         const joined = ticket.createdAt
           ? new Date(ticket.createdAt).toLocaleTimeString([], {
@@ -27,137 +121,154 @@ if (queueBody) {
             })
           : "—";
 
-        const values = [
+        [
           ticket.token,
-          serviceNames[ticket.serviceId] || "Unknown service",
+          ticket.serviceName,
           joined,
           ticket.status
-        ];
-
-        values.forEach(value => {
-          const td = document.createElement("td");
-          td.textContent = value;
-          tr.appendChild(td);
+        ].forEach(value => {
+          const cell = document.createElement("td");
+          cell.textContent = value ?? "—";
+          row.appendChild(cell);
         });
 
-        const actionCell = document.createElement("td");
+        const actions = document.createElement("td");
 
-        if (ticket.status === "Waiting") {
-          const call = document.createElement("button");
-          call.className = "btn btn-secondary btn-small";
-          call.textContent = "Call";
-          call.addEventListener("click", () => callTicket(ticket.id));
+        if (ticket.rawStatus === "WAITING") {
+          const skipButton = document.createElement("button");
+          skipButton.className = "btn btn-warning btn-small";
+          skipButton.textContent = "Skip";
+          skipButton.addEventListener("click", () => skipTicket(ticket.id));
+          actions.appendChild(skipButton);
 
-          const skip = document.createElement("button");
-          skip.className = "btn btn-warning btn-small";
-          skip.textContent = "Skip";
-          skip.addEventListener("click", () => skipTicket(ticket.id));
+        } else if (ticket.rawStatus === "CALLED") {
+          const startButton = document.createElement("button");
+          startButton.className = "btn btn-secondary btn-small";
+          startButton.textContent = "Start service";
+          startButton.addEventListener("click", () => startService(ticket.id));
+          actions.appendChild(startButton);
 
-          actionCell.append(call, skip);
-        } else if (ticket.status === "Serving") {
-          const done = document.createElement("button");
-          done.className = "btn btn-success btn-small";
-          done.textContent = "Complete";
-          done.addEventListener("click", () => completeTicket(ticket.id));
+        } else if (ticket.rawStatus === "IN_SERVICE") {
+          const doneButton = document.createElement("button");
+          doneButton.className = "btn btn-success btn-small";
+          doneButton.textContent = "Complete";
+          doneButton.addEventListener("click", () => completeTicket(ticket.id));
+          actions.appendChild(doneButton);
 
-          actionCell.appendChild(done);
         } else {
-          actionCell.textContent = "—";
+          actions.textContent = "—";
         }
 
-        tr.appendChild(actionCell);
-        queueBody.appendChild(tr);
+        row.appendChild(actions);
+        queueBody.appendChild(row);
       });
 
-      document.getElementById("waitingCount").textContent =
-        queue.filter(ticket => ticket.status === "Waiting").length;
+      const waitingCountEl = document.getElementById("waitingCount");
+      const staffServingEl = document.getElementById("staffServing");
+      const completedCountEl = document.getElementById("completedCount");
 
-      const serving = queue.find(ticket => ticket.status === "Serving");
-      document.getElementById("staffServing").textContent =
-        serving ? serving.token : "None";
+      if (waitingCountEl) {
+        waitingCountEl.textContent = queue.filter(t => t.rawStatus === "WAITING").length;
+      }
 
-      document.getElementById("completedCount").textContent =
-        queue.filter(ticket => ticket.status === "Completed").length;
+      const serving = queue.find(t => t.rawStatus === "CALLED" || t.rawStatus === "IN_SERVICE");
+      if (staffServingEl) {
+        staffServingEl.textContent = serving ? serving.token : "None";
+      }
+
+      if (completedCountEl) {
+        completedCountEl.textContent = queue.filter(t => t.rawStatus === "COMPLETED").length;
+      }
+
+      if (callNextBtn) {
+        callNextBtn.disabled =
+          actionInProgress ||
+          queue.some(t => t.rawStatus === "CALLED" || t.rawStatus === "IN_SERVICE") ||
+          !queue.some(t => t.rawStatus === "WAITING");
+      }
 
     } catch (error) {
-      msg.textContent = error.message || "Could not load queue.";
-      msg.style.color = "#c92a2a";
+      console.error("loadQueue error:", error);
+      showMessage(error.message || "Could not load queue.", false);
+    }
+  }
+
+  async function performAction(action, successMessage) {
+    if (actionInProgress) return;
+
+    actionInProgress = true;
+    setActionButtonsDisabled(true);
+
+    try {
+      const result = await action();
+      showMessage(result.message || successMessage);
+      await loadQueue();
+    } catch (error) {
+      showMessage(error.message || "Action failed.", false);
+      await loadQueue();
+    } finally {
+      actionInProgress = false;
+      setActionButtonsDisabled(false);
+      await loadQueue();
     }
   }
 
   async function callNext() {
-    try {
-      const data = await QueueWise.request("/queue/next", {
-        method: "POST",
-        body: JSON.stringify({})
-      });
-
-      msg.style.color = "#087f5b";
-      msg.textContent = data.message;
-      await loadQueue();
-    } catch (error) {
-      msg.style.color = "#c92a2a";
-      msg.textContent = error.message;
+    const counterId = counterSelect.value;
+    if (!counterId) {
+      showMessage("Select a counter first.", false);
+      return;
     }
+
+    await performAction(
+      () => QueueWise.request("/queue/next", {
+        method: "POST",
+        body: JSON.stringify({ counterId: Number(counterId) })
+      }),
+      "Next ticket called."
+    );
   }
 
-  async function callTicket(id) {
-    try {
-      const queue = await QueueWise.request("/queue");
-      const ticket = queue.find(item => item.id === id);
-
-      if (!ticket) throw new Error("Ticket not found.");
-
-      // The backend's next endpoint calls the earliest waiting ticket.
-      const earliest = queue
-        .filter(item => item.status === "Waiting")
-        .sort((a, b) => a.id - b.id)[0];
-
-      if (earliest && earliest.id !== id) {
-        throw new Error("Call the earliest waiting ticket first.");
-      }
-
-      await callNext();
-    } catch (error) {
-      msg.style.color = "#c92a2a";
-      msg.textContent = error.message;
-    }
+  async function startService(id) {
+    await performAction(
+      () => QueueWise.request(`/queue/${id}/start`, {
+        method: "POST",
+        body: JSON.stringify({})
+      }),
+      "Service started."
+    );
   }
 
   async function skipTicket(id) {
-    try {
-      const data = await QueueWise.request(`/queue/${id}/skip`, {
+    await performAction(
+      () => QueueWise.request(`/queue/${id}/skip`, {
         method: "POST",
         body: JSON.stringify({})
-      });
-
-      msg.style.color = "#087f5b";
-      msg.textContent = data.message;
-      await loadQueue();
-    } catch (error) {
-      msg.style.color = "#c92a2a";
-      msg.textContent = error.message;
-    }
+      }),
+      "Ticket skipped."
+    );
   }
 
   async function completeTicket(id) {
-    try {
-      const data = await QueueWise.request(`/queue/${id}/complete`, {
+    await performAction(
+      () => QueueWise.request(`/queue/${id}/complete`, {
         method: "POST",
         body: JSON.stringify({})
-      });
-
-      msg.style.color = "#087f5b";
-      msg.textContent = data.message;
-      await loadQueue();
-    } catch (error) {
-      msg.style.color = "#c92a2a";
-      msg.textContent = error.message;
-    }
+      }),
+      "Ticket completed."
+    );
   }
 
-  callNextBtn.addEventListener("click", callNext);
+  counterSelect.addEventListener("change", loadQueue);
+  if (callNextBtn) callNextBtn.addEventListener("click", callNext);
 
-  loadQueue();
-  setInterval(loadQueue, 5000);
+  // Initialize
+  loadCounters();
+
+  // Auto-refresh queue every 5 seconds
+  setInterval(() => {
+    if (!actionInProgress && counterSelect.value) {
+      loadQueue();
+    }
+  }, 5000);
 }
