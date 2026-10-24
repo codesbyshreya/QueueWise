@@ -260,8 +260,10 @@ app.post('/api/queue', async (req, res) => {
         }
 
         const tokenNumber = Number(sequences[0].last_number) + 1;
-        const tokenCode =
-            `${counter.counter_code}-${padToken(tokenNumber)}`;
+        const [dateRows] = await connection.execute(
+            "SELECT DATE_FORMAT(CURDATE(), '%Y%m%d') AS dateCode"
+        );
+        const tokenCode = `${counter.counter_code}-${dateRows[0].dateCode}-${padToken(tokenNumber)}`;
 
         await connection.execute(`
             UPDATE token_sequences
@@ -643,8 +645,8 @@ app.post('/api/queue/:id/complete', (req, res) => {
 
 
 app.get('/api/analytics', async (req, res) => {
-  try {
-    const [summaryRows] = await db.query(`
+    try {
+        const [summaryRows] = await db.query(`
       SELECT
         COUNT(*) AS totalIssued,
         SUM(status = 'WAITING') AS waiting,
@@ -661,7 +663,7 @@ app.get('/api/analytics', async (req, res) => {
       WHERE token_date = CURRENT_DATE()
     `);
 
-    const [serviceRows] = await db.query(`
+        const [serviceRows] = await db.query(`
       SELECT
         s.service_name AS serviceName,
         COUNT(q.ticket_id) AS totalTickets,
@@ -676,7 +678,7 @@ app.get('/api/analytics', async (req, res) => {
       ORDER BY totalTickets DESC, s.service_name
     `);
 
-    const [hourRows] = await db.query(`
+        const [hourRows] = await db.query(`
       SELECT
         HOUR(issued_at) AS hour,
         COUNT(*) AS totalTickets
@@ -686,33 +688,33 @@ app.get('/api/analytics', async (req, res) => {
       ORDER BY hour
     `);
 
-    res.json({
-      date: new Date().toISOString().slice(0, 10),
-      summary: {
-        totalIssued: Number(summaryRows[0].totalIssued || 0),
-        waiting: Number(summaryRows[0].waiting || 0),
-        serving: Number(summaryRows[0].serving || 0),
-        completed: Number(summaryRows[0].completed || 0),
-        skipped: Number(summaryRows[0].skipped || 0),
-        averageWaitMinutes:
-          summaryRows[0].averageWaitMinutes === null
-            ? null
-            : Number(summaryRows[0].averageWaitMinutes)
-      },
-      services: serviceRows.map(row => ({
-        serviceName: row.serviceName,
-        totalTickets: Number(row.totalTickets || 0),
-        completed: Number(row.completed || 0)
-      })),
-      hourlyDemand: hourRows.map(row => ({
-        hour: Number(row.hour),
-        totalTickets: Number(row.totalTickets)
-      }))
-    });
-  } catch (error) {
-    console.error('Analytics error:', error);
-    res.status(500).json({ message: 'Failed to load analytics.' });
-  }
+        res.json({
+            date: new Date().toISOString().slice(0, 10),
+            summary: {
+                totalIssued: Number(summaryRows[0].totalIssued || 0),
+                waiting: Number(summaryRows[0].waiting || 0),
+                serving: Number(summaryRows[0].serving || 0),
+                completed: Number(summaryRows[0].completed || 0),
+                skipped: Number(summaryRows[0].skipped || 0),
+                averageWaitMinutes:
+                    summaryRows[0].averageWaitMinutes === null
+                        ? null
+                        : Number(summaryRows[0].averageWaitMinutes)
+            },
+            services: serviceRows.map(row => ({
+                serviceName: row.serviceName,
+                totalTickets: Number(row.totalTickets || 0),
+                completed: Number(row.completed || 0)
+            })),
+            hourlyDemand: hourRows.map(row => ({
+                hour: Number(row.hour),
+                totalTickets: Number(row.totalTickets)
+            }))
+        });
+    } catch (error) {
+        console.error('Analytics error:', error);
+        res.status(500).json({ message: 'Failed to load analytics.' });
+    }
 });
 
 // User authentication endpoint
