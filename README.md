@@ -5,8 +5,8 @@ DBMS mini-project: a smart queue management and waiting-time analytics system us
 ## Project Structure
 
 - `frontend/` — HTML, CSS, and JavaScript user interface
-- Backend — Node.js and Express.js APIs
-- Database — MySQL
+- `Backend/` — Node.js and Express.js APIs
+- `Database/` — MySQL
 
 ## Run the Frontend Locally
 
